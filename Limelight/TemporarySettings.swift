@@ -1,4 +1,11 @@
 //
+//  TemporarySettings.swift
+//  Moonlight Vision
+//
+//  Created by Alex Haugland on 1/22/24.
+//  Copyright © 2024 Moonlight Game Streaming Project. All rights reserved.
+//
+
 
 import Foundation
 import Observation
@@ -34,6 +41,11 @@ public class TemporarySettings: NSObject {
     @objc public var statsOverlay = false
     @objc public var dimPassthrough = true
 
+    @objc public var hdrBoost: Float = 1.0
+    @objc public var hdrContrast: Float = 1.5
+    @objc public var hdrSaturation: Float = 1.5
+
+
     @objc public var parent: MoonlightSettings?
 
     override public init() {
@@ -48,6 +60,9 @@ public class TemporarySettings: NSObject {
         self.realitykitRendererAnimateOpening = false
         self.realitykitRendererCurvature = 0.0
         self.dimPassthrough = false
+        self.hdrBoost = 1.0
+        self.hdrContrast = 1.5
+        self.hdrSaturation = 1.5
         super.init()
     }
 
@@ -81,15 +96,44 @@ public class TemporarySettings: NSObject {
         self.realitykitRendererAnimateOpening = settings.realitykitRendererAnimateOpening == 1
         self.realitykitRendererCurvature = settings.realitykitRendererCurvature?.floatValue ?? 0
         self.dimPassthrough = settings.dimPassthrough?.boolValue ?? false
+
+        self.hdrBoost = settings.hdrBoost?.floatValue ?? 2.5
+        self.hdrContrast = settings.hdrContrast?.floatValue ?? 1.8
+        self.hdrSaturation = settings.hdrSaturation?.floatValue ?? 1.8
+
         #endif
 
         super.init()
     }
-
+    
     @objc public func save() {
         // save settings to parent
         let dataManager = DataManager()
-        dataManager.saveSettings(withBitrate: Int(bitrate), framerate: Int(framerate), height: Int(height), width: Int(width), audioConfig: Int(audioConfig), onscreenControls: Int(onscreenControls.rawValue), optimizeGames: optimizeGames, multiController: multiController, swapABXYButtons: swapABXYButtons, audioOnPC: playAudioOnPC, preferredCodec: UInt32(preferredCodec.rawValue), renderer: renderer.rawValue, useFramePacing: useFramePacing, enableHdr: enableHdr, btMouseSupport: btMouseSupport, absoluteTouchMode: absoluteTouchMode, statsOverlay: statsOverlay, realitykitRendererAnimateOpening: realitykitRendererAnimateOpening, realitykitRendererCurvature: NSNumber(value: realitykitRendererCurvature), dimPassthrough: dimPassthrough)
+        dataManager.saveSettings(
+            withBitrate: Int(bitrate),
+            framerate: Int(framerate),
+            height: Int(height),
+            width: Int(width),
+            audioConfig: Int(audioConfig),
+            onscreenControls: Int(onscreenControls.rawValue),
+            optimizeGames: optimizeGames,
+            multiController: multiController,
+            swapABXYButtons: swapABXYButtons,
+            audioOnPC: playAudioOnPC,
+            preferredCodec: UInt32(preferredCodec.rawValue),
+            renderer: renderer.rawValue,
+            useFramePacing: useFramePacing,
+            enableHdr: enableHdr,
+            btMouseSupport: btMouseSupport,
+            absoluteTouchMode: absoluteTouchMode,
+            statsOverlay: statsOverlay,
+            realitykitRendererAnimateOpening: realitykitRendererAnimateOpening,
+            realitykitRendererCurvature: NSNumber(value: realitykitRendererCurvature),
+            dimPassthrough: dimPassthrough,
+            hdrBoost: NSNumber(value: hdrBoost),  // ADDED HDR ARGUMENT
+            hdrContrast: NSNumber(value: hdrContrast), // ADDED HDR ARGUMENT
+            hdrSaturation: NSNumber(value: hdrSaturation) // ADDED HDR ARGUMENT
+        )
     }
 }
 

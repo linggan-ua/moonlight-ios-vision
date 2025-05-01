@@ -1,4 +1,3 @@
-//
 //  MainViewModel.swift
 //  Moonlight Vision
 //
@@ -15,7 +14,7 @@ import AVFoundation
 class MainViewModel: NSObject, ObservableObject, DiscoveryCallback, PairCallback, AppAssetCallback {
     @objc
     static let shared = MainViewModel()
-    
+
     @Published var hosts: [TemporaryHost] = []
 
     @Published var pairingInProgress = false
@@ -30,7 +29,7 @@ class MainViewModel: NSObject, ObservableObject, DiscoveryCallback, PairCallback
 
     @Published var volumeSliderValue: Float = 1.0
 
-    
+
     @Published var vol: Float = 127
     @Published var mute: Bool = false
 
@@ -66,7 +65,7 @@ class MainViewModel: NSObject, ObservableObject, DiscoveryCallback, PairCallback
         let name2WithoutLocal = name2.hasSuffix(".local") ? String(name2.dropSuffix(".local")) : name2
         return name1WithoutLocal.caseInsensitiveCompare(name2WithoutLocal) == .orderedSame
     }
-    
+
     // Add this computed property to filter hosts based on pairState and remove duplicates
         var hostsWithPairState: [TemporaryHost] {
             //print("--- Filtering hosts for hostsWithPairState ---")
@@ -202,7 +201,7 @@ class MainViewModel: NSObject, ObservableObject, DiscoveryCallback, PairCallback
         //print("setHosts - END")
 
     }
-    
+
     func addHost(newHost: TemporaryHost) {
         //print("addHost - START - Attempting to add host: \(newHost.name), UUID: \(newHost.uuid), Address: \(newHost.address), Current hosts count: \(hosts.count)")
 

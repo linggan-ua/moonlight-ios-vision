@@ -1,4 +1,3 @@
-//
 //  DrawableVideoDecoder.swift
 //  Moonlight
 //
@@ -56,6 +55,7 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
     private var streamAspectRatio: Float
 //    let callbackToRender: @MainActor (LowLevelTexture, (Int, Int)?) -> Void
 
+    private var getHDRParams: (() -> (Float, Float, Float))?
     let callbackToRender: @MainActor (TextureResource.DrawableQueue, (Int, Int)?) -> Void
 
     /// Format and frame info
@@ -116,6 +116,7 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
         aspectRatio: Float,
         useFramePacing: Bool,
         enableHDR: Bool = false,
+        getHDRParams: @escaping () -> (Float, Float, Float),
         callbackToRender: @MainActor @escaping (TextureResource.DrawableQueue, (Int, Int)?) -> Void
     ) {
         metalFormat = .rgba16Float
@@ -131,6 +132,7 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
         framePacing = useFramePacing
         hdrEnabled = enableHDR
         self.callbackToRender = callbackToRender
+        self.getHDRParams = getHDRParams
 
         decoderCallback = VTDecompressionOutputCallbackRecord()
         decoderCallback.decompressionOutputCallback = { decompressionOutputRefCon, sourceFrameRefCon, status, infoFlags, imageBuffer, presentationTimeStamp, presentationDuration in
@@ -177,7 +179,7 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
             print("ERROR")
             return
         }
-        
+
         if hdrEnabled {
             updateHDRMetadata()
         }
@@ -196,7 +198,7 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
         }
 
         // Create HDR parameter buffers
-        let (displayBuffer, contentBuffer) = createHDRParameterBuffers()
+        let (enabledBuffer, paramsBuffer) = createHDRParameterBuffers()
 
         // Figure out the Metal pixel format
         let pixelFormat = CVPixelBufferGetPixelFormatType(imageBuffer)
@@ -237,15 +239,15 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
         }
         renderEncoder.setRenderPipelineState(copyPipelineState)
         renderEncoder.setFragmentTexture(mtlTexture, index: 0)
-        
+
         // Set HDR parameter buffers
-        if let enabledBuffer = displayBuffer {
+        if let enabledBuffer = enabledBuffer {
             renderEncoder.setFragmentBuffer(enabledBuffer, offset: 0, index: 0)
         }
-        if let paramsBuffer = contentBuffer {
+        if let paramsBuffer = paramsBuffer {
             renderEncoder.setFragmentBuffer(paramsBuffer, offset: 0, index: 1)
         }
-        
+
         renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         renderEncoder.endEncoding()
 
@@ -433,7 +435,7 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
                 dataPtr: dataPtr, length: length
             ) {
                 self.formatDesc = formatDesc
-                
+
                 let decoderConfiguration: [String: Any] = {
                     var config: [String: Any] = [
                         kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder as String: true,
@@ -449,7 +451,7 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
 
                     return config
                 }()
-                
+
                 // NOTE(shinyquagsire23): Setting kCVPixelBufferPixelFormatTypeKey *at all* will trigger
                 // a VideoToolbox bug that results in the output CVPixelBuffer's underlying Metal textures
                 // being decompressed, resulting in GPU bandwidth penalties
@@ -457,9 +459,9 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
                 if !forceFastSecretTextureFormats {
                     attributes[kCVPixelBufferPixelFormatTypeKey] = decodingFormat
                 }
-                
+
                 VTDecompressionSessionCreate(allocator: kCFAllocatorDefault, formatDescription: formatDesc, decoderSpecification: decoderConfiguration as CFDictionary, imageBufferAttributes: attributes as CFDictionary, outputCallback: &decoderCallback, decompressionSessionOut: &session)
-                
+
                 AudioHelpers.fixAudioForSurroundForCurrentWindow() // TODO(shinyquagsire23): Make this configurable?
             } else {
                 // Couldn't create format description yet
@@ -660,7 +662,7 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
             print("\nBuffer attachments:")
             for (key, value) in attachments {
                 print("\(key): \(value)")
-                
+
                 // Parse MasteringDisplayColorVolume if present
                 if key == kCMFormatDescriptionExtension_MasteringDisplayColorVolume as String,
                    let masteringData = value as? Data {
@@ -991,16 +993,15 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
         let enabledBuffer = mtlDevice.makeBuffer(bytes: &hdrEnabled,
                                                length: MemoryLayout<Bool>.size,
                                                options: .storageModeShared)
-        
-        // Create HDR parameters buffer
-        var hdrParams = HDRParams(boost: 1.0,      // Default value
-                                  contrast: 1.25,    // Default value
-                                  saturation: 1.25)  // Default value
-        
+
+        // Create HDR parameters buffer using the closure to get current values
+        let (boost, contrast, saturation) = getHDRParams?() ?? (1.0, 1.5, 1.5) // Default values if closure fails
+        var hdrParams = HDRParams(boost: boost, contrast: contrast, saturation: saturation)
+
         let paramsBuffer = mtlDevice.makeBuffer(bytes: &hdrParams,
                                               length: MemoryLayout<HDRParams>.size,
                                               options: .storageModeShared)
-        
+
         return (enabledBuffer, paramsBuffer)
     }
 
@@ -1020,7 +1021,7 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
             print("Failed to fetch HDR metadata from Moonlight")
         }
     }
-    
+
     // Parse SMPTE ST 2086 mastering display color volume metadata
     private func parseMasteringDisplayColorVolume(_ data: Data) {
         // Data should be 24 bytes
@@ -1035,16 +1036,16 @@ class DrawableVideoDecoder: NSObject, AnyVideoDecoderRenderer {
             Float(CFSwapInt16BigToHost(data.withUnsafeBytes { $0.load(fromByteOffset: 4, as: UInt16.self) })) / 50000.0,
             Float(CFSwapInt16BigToHost(data.withUnsafeBytes { $0.load(fromByteOffset: 8, as: UInt16.self) })) / 50000.0
         ]
-        
+
         let displayPrimariesY = [
             Float(CFSwapInt16BigToHost(data.withUnsafeBytes { $0.load(fromByteOffset: 2, as: UInt16.self) })) / 50000.0,
             Float(CFSwapInt16BigToHost(data.withUnsafeBytes { $0.load(fromByteOffset: 6, as: UInt16.self) })) / 50000.0,
             Float(CFSwapInt16BigToHost(data.withUnsafeBytes { $0.load(fromByteOffset: 10, as: UInt16.self) })) / 50000.0
         ]
-        
+
         let whitePointX = Float(CFSwapInt16BigToHost(data.withUnsafeBytes { $0.load(fromByteOffset: 12, as: UInt16.self) })) / 50000.0
         let whitePointY = Float(CFSwapInt16BigToHost(data.withUnsafeBytes { $0.load(fromByteOffset: 14, as: UInt16.self) })) / 50000.0
-        
+
         let maxDisplayLuminance = Float(CFSwapInt16BigToHost(data.withUnsafeBytes { $0.load(fromByteOffset: 16, as: UInt16.self) }))
         let minDisplayLuminance = Float(CFSwapInt16BigToHost(data.withUnsafeBytes { $0.load(fromByteOffset: 18, as: UInt16.self) })) / 10000.0
 

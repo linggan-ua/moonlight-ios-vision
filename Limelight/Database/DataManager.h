@@ -33,7 +33,10 @@
                     statsOverlay:(BOOL)statsOverlay
 realitykitRendererAnimateOpening:(BOOL)realitykitRendererAnimateOpening
      realitykitRendererCurvature:(NSNumber*)realitykitRendererCurvature
-                  dimPassthrough:(BOOL)dimPassthrough;
+                  dimPassthrough:(BOOL)dimPassthrough
+                       hdrBoost:(NSNumber*)hdrBoost  // ADDED HDR PARAMETERS HERE
+                    hdrContrast:(NSNumber*)hdrContrast // ADDED HDR PARAMETERS HERE
+                  hdrSaturation:(NSNumber*)hdrSaturation; // ADDED HDR PARAMETERS HERE
 
 - (NSArray<TemporaryHost*>*) getHosts;
 - (void) updateHost:(TemporaryHost*)host;

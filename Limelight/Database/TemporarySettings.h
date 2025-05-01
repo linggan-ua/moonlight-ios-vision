@@ -35,6 +35,11 @@
 @property (nonatomic) BOOL absoluteTouchMode;
 @property (nonatomic) BOOL statsOverlay;
 
+@property (nonatomic, assign, unsafe_unretained) float hdrBoost;
+@property (nonatomic, assign, unsafe_unretained) float hdrContrast;
+@property (nonatomic, assign, unsafe_unretained) float hdrSaturation;
+
+
 - (id) initFromSettings:(MoonlightSettings*)settings;
 
 @end

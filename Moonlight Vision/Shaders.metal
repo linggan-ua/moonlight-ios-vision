@@ -1,4 +1,3 @@
-//
 //  Shaders.metal
 //  Moonlight
 //
@@ -39,15 +38,18 @@ fragment half4 copyFragmentShader(CopyVertexOut in [[stage_in]],
 
     half4 color = in_tex.sample(colorSampler, in.uv);
     float3 hdrColor = float3(color.rgb);
-    
+
     if (hdrEnabled) {
+        // Brightness (Boost) adjustment
+        hdrColor *= hdrParams.boost;
+
         // Simple contrast adjustment
         hdrColor = pow(hdrColor, float3(hdrParams.contrast));
-        
+
         // Saturation adjustment
         float3 desaturated = float3(dot(hdrColor, float3(0.333)));
         hdrColor = mix(desaturated, hdrColor, hdrParams.saturation);
     }
-    
+
     return half4(half3(hdrColor), color.a);
 }

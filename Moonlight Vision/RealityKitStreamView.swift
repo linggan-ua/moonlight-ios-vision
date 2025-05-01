@@ -1,4 +1,3 @@
-//
 //  RealityKitStreamView.swift
 //  Moonlight Vision
 //
@@ -26,8 +25,8 @@ struct RealityKitStreamView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     @Binding var streamConfig: StreamConfiguration?
     var needsHdr: Bool
-    
-    
+
+
     var body: some View {
         if streamConfig != nil {
             _RealityKitStreamView(streamConfig: Binding<StreamConfiguration>(
@@ -56,7 +55,7 @@ struct _RealityKitStreamView: View {
     @State var curveAnimationMultiplier: Float = 1
     @State var controllerSupport: ControllerSupport?
     @State var height: Float = 0
-    
+
     @State var shouldClose: Bool = false
 
     var aspectRatio: Float {
@@ -72,7 +71,7 @@ struct _RealityKitStreamView: View {
 
     @State var texture: TextureResource
     @State var screen: ModelEntity = ModelEntity()
-    
+
     let closeAction: () -> Void
 
     @State var videoMode: VideoMode = .standard2D
@@ -98,43 +97,43 @@ struct _RealityKitStreamView: View {
 
     var body: some View {
         GeometryReader3D { proxy in
-                RealityView { content in
-                    let mesh = try! _RealityKitStreamView.generateCurvedPlane(width: MAX_WIDTH_METERS, aspectRatio: aspectRatio, resulotion: (50,50), curveMagnitude: viewModel.streamSettings.realitykitRendererCurvature * curveAnimationMultiplier)
-                    let colBox = ShapeResource.generateBox(width: 2, height: 2 * aspectRatio, depth: 0.001).offsetBy(translation: .init(x: 0, y: -0.43, z: 1))
-                    screen = ModelEntity(mesh: mesh, materials: [])
+            RealityView { content in
+                let mesh = try! _RealityKitStreamView.generateCurvedPlane(width: MAX_WIDTH_METERS, aspectRatio: aspectRatio, resulotion: (50,50), curveMagnitude: viewModel.streamSettings.realitykitRendererCurvature * curveAnimationMultiplier)
+                let colBox = ShapeResource.generateBox(width: 2, height: 2 * aspectRatio, depth: 0.001).offsetBy(translation: .init(x: 0, y: -0.43, z: 1))
+                screen = ModelEntity(mesh: mesh, materials: [])
 
-                    // Initialize material if needed
-                    if surfaceMaterial == nil {
-                        surfaceMaterial = try! await ShaderGraphMaterial(
-                            named: "/Root/SBSMaterial",
-                            from: "SBSMaterial.usda"
-                        )
+                // Initialize material if needed
+                if surfaceMaterial == nil {
+                    surfaceMaterial = try! await ShaderGraphMaterial(
+                        named: "/Root/SBSMaterial",
+                        from: "SBSMaterial.usda"
+                    )
 
-                        try! surfaceMaterial!.setParameter(
-                            name: "texture",
-                            value: .textureResource(self.texture)
-                        )
-                    }
-
-                    if videoMode == .sideBySide3D {
-                        screen.model?.materials = [surfaceMaterial!]
-                    } else {
-                        screen.model?.materials = [UnlitMaterial(texture: self.texture)]
-                    }
-
-                    screen.collision = CollisionComponent(shapes: [
-                        colBox
-                    ], mode: .colliding)
-                    screen.components.set(InputTargetComponent())
-                    content.add(screen)
-                } update: { content in
-                    let mesh = try! _RealityKitStreamView.generateCurvedPlane(width: MAX_WIDTH_METERS, aspectRatio: aspectRatio, resulotion: (50,50), curveMagnitude: viewModel.streamSettings.realitykitRendererCurvature * curveAnimationMultiplier)
-                    let size = content.convert(proxy.frame(in: .local), from: .local, to: .scene)
-                    screen.transform.scale = .init(repeating: size.extents.x / 2)
-                    screen.transform.translation.y = height
-                    try! screen.model!.mesh.replace(with: mesh.contents)
+                    try! surfaceMaterial!.setParameter(
+                        name: "texture",
+                        value: .textureResource(self.texture)
+                    )
                 }
-                .handlesGameControllerEvents(matching: .gamepad)
+
+                if videoMode == .sideBySide3D {
+                    screen.model?.materials = [surfaceMaterial!]
+                } else {
+                    screen.model?.materials = [UnlitMaterial(texture: self.texture)]
+                }
+
+                screen.collision = CollisionComponent(shapes: [
+                    colBox
+                ], mode: .colliding)
+                screen.components.set(InputTargetComponent())
+                content.add(screen)
+            } update: { content in
+                let mesh = try! _RealityKitStreamView.generateCurvedPlane(width: MAX_WIDTH_METERS, aspectRatio: aspectRatio, resulotion: (50,50), curveMagnitude: viewModel.streamSettings.realitykitRendererCurvature * curveAnimationMultiplier)
+                let size = content.convert(proxy.frame(in: .local), from: .local, to: .scene)
+                screen.transform.scale = .init(repeating: size.extents.x / 2)
+                screen.transform.translation.y = height
+                try! screen.model!.mesh.replace(with: mesh.contents)
+            }
+            .handlesGameControllerEvents(matching: .gamepad)
         }
         .ornament(visibility: connectionCallbacks.showAlert ? .visible :  .hidden , attachmentAnchor: .scene(.bottomFront), contentAlignment: .bottom) {
             VStack(alignment: .center) {
@@ -199,23 +198,43 @@ struct _RealityKitStreamView: View {
                             //                            effect.scaleEffect(x: isActive ? 1: 0.5, y: 1, anchor: .leading)
                         }
                 }
-                Button("Main Button", systemImage: "house") {
+                HStack {
+                    Button("Main Button", systemImage: "house") {
 //                    self.controllerSupport?.updateTriggers(<#T##controller: Controller!##Controller!#>, left: <#T##UInt8#>, right: <#T##UInt8#>)
-                }.simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            if let controller = self.controllerSupport?.getOscController() {
-                                self.controllerSupport?.setButtonFlag(controller, flags: 0x0400)
-                                self.controllerSupport?.updateFinished(controller)
+                    }.simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in
+                                if let controller = self.controllerSupport?.getOscController() {
+                                    self.controllerSupport?.setButtonFlag(controller, flags: 0x0400)
+                                    self.controllerSupport?.updateFinished(controller)
+                                }
                             }
-                        }
-                        .onEnded { _ in
-                            if let controller = self.controllerSupport?.getOscController() {
-                                self.controllerSupport?.clearButtonFlag(controller, flags: 0x0400)
-                                self.controllerSupport?.updateFinished(controller)
+                            .onEnded { _ in
+                                if let controller = self.controllerSupport?.getOscController() {
+                                    self.controllerSupport?.clearButtonFlag(controller, flags: 0x0400)
+                                    self.controllerSupport?.updateFinished(controller)
+                                }
                             }
-                        }
-                )
+                    )
+                }
+                HStack {
+                    Button("Brightness", systemImage: "sun.max") { }
+                    Slider(value: $viewModel.streamSettings.hdrBoost, in: 1.0...3.0, step: 0.1)
+                        .frame(width: 300)
+                        .padding([.trailing])
+                }
+                HStack {
+                    Button("Contrast", systemImage: "circle.lefthalf.filled") { }
+                    Slider(value: $viewModel.streamSettings.hdrContrast, in: 1.0...4.0, step: 0.01)
+                        .frame(width: 300)
+                        .padding([.trailing])
+                }
+                HStack {
+                    Button("Saturation", systemImage: "drop") { }
+                    Slider(value: $viewModel.streamSettings.hdrSaturation, in: 1.0...4.0, step: 0.01)
+                        .frame(width: 300)
+                        .padding([.trailing])
+                }
             }
         }
         .onAppear {
@@ -226,18 +245,28 @@ struct _RealityKitStreamView: View {
             self._streamMan = StreamManager(
                 config: self.streamConfig,
                 rendererProvider: {
-                    DrawableVideoDecoder(texture: self.texture, callbacks: self.connectionCallbacks, aspectRatio: Float(self.streamConfig.width) / Float(self.streamConfig.height), useFramePacing: self.streamConfig.useFramePacing, enableHDR: self.viewModel.streamSettings.enableHdr) { texture, correctedResultion in
-                        DispatchQueue.main.async {
-                            if let correctedResultion = correctedResultion {
-                                streamConfig.width = Int32(correctedResultion.0)
-                                streamConfig.height = Int32(correctedResultion.1)
+                    DrawableVideoDecoder(
+                        texture: self.texture,
+                        callbacks: self.connectionCallbacks,
+                        aspectRatio: Float(self.streamConfig.width) / Float(self.streamConfig.height),
+                        useFramePacing: self.streamConfig.useFramePacing,
+                        enableHDR: self.viewModel.streamSettings.enableHdr,
+                        getHDRParams: {
+                            (viewModel.streamSettings.hdrBoost, viewModel.streamSettings.hdrContrast, viewModel.streamSettings.hdrSaturation)
+                        },
+                        callbackToRender: { texture, correctedResultion in
+                            DispatchQueue.main.async {
+                                if let correctedResultion = correctedResultion {
+                                    streamConfig.width = Int32(correctedResultion.0)
+                                    streamConfig.height = Int32(correctedResultion.1)
+                                }
+                                self.texture.replace(withDrawables: texture)
+                                screen.model!.materials = [UnlitMaterial(texture: self.texture)]
+                                self.controllerSupport!.connectionEstablished()
+                                if self.curveAnimationMultiplier == 0 { animateOpening() }
                             }
-                            self.texture.replace(withDrawables: texture)
-                            screen.model!.materials = [UnlitMaterial(texture: self.texture)]
-                            self.controllerSupport!.connectionEstablished()
-                            if self.curveAnimationMultiplier == 0 { animateOpening() }
                         }
-                    }
+                    )
                 },
                 connectionCallbacks: self.connectionCallbacks
             )
@@ -349,4 +378,3 @@ struct _RealityKitStreamView: View {
 ////    NativeStreamView()
 //    NativeStreamView()
 //}
-

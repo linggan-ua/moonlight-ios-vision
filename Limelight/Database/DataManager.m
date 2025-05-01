@@ -17,7 +17,7 @@
 
 - (id) init {
     self = [super init];
-    
+
     // HACK: Avoid calling [UIApplication delegate] off the UI thread to keep
     // Main Thread Checker happy.
     if ([NSThread isMainThread]) {
@@ -28,10 +28,10 @@
             self->_appDelegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
         });
     }
-    
+
     _managedObjectContext = [[NSManagedObjectContext alloc] initWithConcurrencyType:NSMainQueueConcurrencyType];
     [_managedObjectContext setParentContext:[_appDelegate managedObjectContext]];
-    
+
     return self;
 }
 
@@ -44,7 +44,7 @@
 
 - (NSString*) getUniqueId {
     __block NSString *uid;
-    
+
     [_managedObjectContext performBlockAndWait:^{
         uid = [self retrieveSettings].uniqueId;
     }];
@@ -71,7 +71,10 @@
                     statsOverlay:(BOOL)statsOverlay
 realitykitRendererAnimateOpening:(BOOL)realitykitRendererAnimateOpening
      realitykitRendererCurvature:(NSNumber*)realitykitRendererCurvature
-                  dimPassthrough:(BOOL)dimPassthrough {
+                  dimPassthrough:(BOOL)dimPassthrough
+                       hdrBoost:(NSNumber*)hdrBoost  // Added HDR parameters
+                    hdrContrast:(NSNumber*)hdrContrast
+                  hdrSaturation:(NSNumber*)hdrSaturation {
     [_managedObjectContext performBlockAndWait:^{
         MoonlightSettings* settingsToSave = [self retrieveSettings];
         settingsToSave.framerate = [NSNumber numberWithInteger:framerate];
@@ -94,6 +97,9 @@ realitykitRendererAnimateOpening:(BOOL)realitykitRendererAnimateOpening
         settingsToSave.realitykitRendererAnimateOpening = [NSNumber numberWithBool: realitykitRendererAnimateOpening];
         settingsToSave.realitykitRendererCurvature = realitykitRendererCurvature;
         settingsToSave.dimPassthrough = [NSNumber numberWithBool: dimPassthrough];
+        settingsToSave.hdrBoost = hdrBoost;        // Set HDR parameters
+        settingsToSave.hdrContrast = hdrContrast;
+        settingsToSave.hdrSaturation = hdrSaturation;
         [self saveData];
     }];
 }
@@ -106,10 +112,10 @@ realitykitRendererAnimateOpening:(BOOL)realitykitRendererAnimateOpening
             NSEntityDescription* entity = [NSEntityDescription entityForName:@"Host" inManagedObjectContext:self->_managedObjectContext];
             parent = [[MoonlightHost alloc] initWithEntity:entity insertIntoManagedObjectContext:self->_managedObjectContext];
         }
-        
+
         // Push changes from the temp host to the persistent one
         [host propagateChangesToParent:parent];
-        
+
         [self saveData];
     }];
 }
@@ -121,7 +127,7 @@ realitykitRendererAnimateOpening:(BOOL)realitykitRendererAnimateOpening
             // The host must exist to be updated
             return;
         }
-        
+
         NSMutableSet *applist = [[NSMutableSet alloc] init];
         NSArray *appRecords = [self fetchRecords:@"App"];
         for (TemporaryApp* app in host.appList) {
@@ -134,26 +140,26 @@ realitykitRendererAnimateOpening:(BOOL)realitykitRendererAnimateOpening
                 Log(LOG_E, @"Inserting new App to database: %@", parentApp);
                 [parentApp setHost: parent];
             }
-            
+
             [app propagateChangesToParent:parentApp withHost:parent];
             [parentApp setHost: parent];
-            
+
             [applist addObject:parentApp];
         }
-        
+
         parent.appList = applist;
-        
+
         [self saveData];
     }];
 }
 
 - (TemporarySettings*) getSettings {
     __block TemporarySettings *tempSettings;
-    
+
     [_managedObjectContext performBlockAndWait:^{
         tempSettings = [[TemporarySettings alloc] initFromSettings:[self retrieveSettings]];
     }];
-    
+
     return tempSettings;
 }
 
@@ -163,7 +169,7 @@ realitykitRendererAnimateOpening:(BOOL)realitykitRendererAnimateOpening
         // create a new settings object with the default values
         NSEntityDescription* entity = [NSEntityDescription entityForName:@"Settings" inManagedObjectContext:_managedObjectContext];
         MoonlightSettings* settings = [[MoonlightSettings alloc] initWithEntity:entity insertIntoManagedObjectContext:_managedObjectContext];
-        
+
         return settings;
     } else {
         // we should only ever have 1 settings object stored
@@ -202,15 +208,15 @@ realitykitRendererAnimateOpening:(BOOL)realitykitRendererAnimateOpening
 
 - (NSArray*) getHosts {
     __block NSMutableArray *tempHosts = [[NSMutableArray alloc] init];
-    
+
     [_managedObjectContext performBlockAndWait:^{
         NSArray *hosts = [self fetchRecords:@"Host"];
-        
+
         for (MoonlightHost* host in hosts) {
             [tempHosts addObject:[[TemporaryHost alloc] initFromHost:host]];
         }
     }];
-    
+
     return tempHosts;
 }
 
@@ -221,7 +227,7 @@ realitykitRendererAnimateOpening:(BOOL)realitykitRendererAnimateOpening
             return host;
         }
     }
-    
+
     return nil;
 }
 
@@ -236,22 +242,22 @@ realitykitRendererAnimateOpening:(BOOL)realitykitRendererAnimateOpening
             return app;
         }
     }
-    
+
     return nil;
 }
 
 - (NSArray*) fetchRecords:(NSString*)entityName {
     NSArray* fetchedRecords;
-    
+
     NSFetchRequest* fetchRequest = [[NSFetchRequest alloc] init];
     NSEntityDescription* entity = [NSEntityDescription entityForName:entityName inManagedObjectContext:_managedObjectContext];
     [fetchRequest setEntity:entity];
     [fetchRequest setReturnsObjectsAsFaults:NO]; // >:(
-    
+
     NSError* error;
     fetchedRecords = [_managedObjectContext executeFetchRequest:fetchRequest error:&error];
     //TODO: handle errors
-    
+
     return fetchedRecords;
 }
 
